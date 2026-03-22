@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>商談採点AI — Monster Bank</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=Space+Mono:wght@400;700&display=swap');
+  :root {
+    --bg: #0a0a0a; --surface: #141414; --surface2: #1e1e1e;
+    --border: #2a2a2a; --accent: #ff5c00; --accent2: #ffb800;
+    --text: #f0f0f0; --text-muted: #666;
+    --green: #4ade80; --yellow: #fbbf24; --red: #f87171; --blue: #60a5fa;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Zen Kaku Gothic New', sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; background: var(--surface); flex-shrink: 0; }
+  .avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #ff5c00, #ffb800); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 13px; color: #000; flex-shrink: 0; }
+  .header-info h1 { font-size: 13px; font-weight: 700; }
+  .header-info p { font-size: 9px; color: var(--text-muted); font-family: 'Space Mono', monospace; margin-top: 1px; }
+  .mode-badge { margin-left: auto; font-family: 'Space Mono', monospace; font-size: 9px; color: var(--accent2); border: 1px solid var(--accent2); padding: 2px 8px; border-radius: 20px; }
+
+  #messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+
+  .msg { display: flex; gap: 8px; max-width: 92%; animation: fadeUp 0.3s ease; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  .msg.user { align-self: flex-end; flex-direction: row-reverse; }
+  .msg-avatar { width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; }
+  .msg.ai .msg-avatar { background: linear-gradient(135deg, #ff5c00, #ffb800); color: #000; }
+  .msg.user .msg-avatar { background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border); }
+  .bubble { padding: 10px 14px; border-radius: 14px; font-size: 13px; line-height: 1.7; white-space: pre-wrap; }
+  .msg.ai .bubble { background: var(--surface); border: 1px solid var(--border); border-top-left-radius: 4px; }
+  .msg.user .bubble { background: #1a1a2e; border: 1px solid #2a2a4a; border-top-right-radius: 4px; }
+
+  .score-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px; font-size: 12px; line-height: 1.6; border-top-left-radius: 4px; }
+  .score-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .score-title { font-size: 13px; font-weight: 700; }
+  .total-score { font-family: 'Space Mono', monospace; font-size: 22px; font-weight: 700; }
+  .score-section { margin-bottom: 10px; }
+  .score-section-title { font-size: 11px; color: var(--text-muted); font-family: 'Space Mono', monospace; margin-bottom: 6px; letter-spacing: 0.05em; }
+  .score-row { display: flex; align-items: flex-start; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--border); }
+  .score-row:last-child { border-bottom: none; }
+  .score-tag { flex-shrink: 0; font-size: 10px; font-family: 'Space Mono', monospace; padding: 1px 6px; border-radius: 10px; }
+  .tag-ok { background: #14532d; color: var(--green); }
+  .tag-warn { background: #451a03; color: var(--yellow); }
+  .tag-ng { background: #450a0a; color: var(--red); }
+  .score-item { flex: 1; color: var(--text); }
+  .score-comment { color: var(--text-muted); font-size: 11px; }
+  .improve-box { background: #0f172a; border: 1px solid #1e3a5f; border-radius: 8px; padding: 10px 12px; margin-top: 10px; }
+  .improve-title { font-size: 11px; color: var(--blue); font-family: 'Space Mono', monospace; margin-bottom: 6px; }
+  .improve-item { color: var(--text); font-size: 11px; padding: 3px 0; border-bottom: 1px solid #1e3a5f; }
+  .improve-item:last-child { border-bottom: none; }
+
+  .typing { display: flex; gap: 4px; padding: 12px 14px; align-items: center; }
+  .typing span { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); animation: bounce 1.2s infinite; }
+  .typing span:nth-child(2) { animation-delay: 0.2s; }
+  .typing span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-5px)} }
+
+  footer { padding: 10px 16px 14px; border-top: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
+  .input-row { display: flex; gap: 8px; align-items: flex-end; }
+  textarea { flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; color: var(--text); font-family: 'Zen Kaku Gothic New', sans-serif; font-size: 12px; padding: 10px 14px; resize: none; min-height: 40px; max-height: 200px; outline: none; transition: border-color 0.2s; line-height: 1.5; }
+  textarea:focus { border-color: var(--accent); }
+  textarea::placeholder { color: var(--text-muted); }
+  button#send { width: 40px; height: 40px; border-radius: 12px; background: var(--accent); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; flex-shrink: 0; }
+  button#send:hover { background: #ff7a2e; transform: scale(1.05); }
+  button#send:disabled { background: var(--border); cursor: not-allowed; transform: none; }
+  button#send svg { width: 16px; height: 16px; fill: #000; }
+  .hint { font-size: 9px; color: var(--text-muted); margin-top: 6px; font-family: 'Space Mono', monospace; }
+
+  .api-setup { background: var(--surface); border: 1px solid var(--accent); border-radius: 12px; padding: 16px; margin: 16px; }
+  .api-setup h2 { font-size: 13px; font-weight: 700; margin-bottom: 8px; color: var(--accent2); }
+  .api-setup p { font-size: 12px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.6; }
+  .api-input-row { display: flex; gap: 8px; }
+  .api-input { flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'Space Mono', monospace; font-size: 11px; padding: 8px 12px; outline: none; }
+  .api-input:focus { border-color: var(--accent); }
+  .api-btn { background: var(--accent); border: none; color: #000; font-family: 'Zen Kaku Gothic New', sans-serif; font-size: 12px; font-weight: 700; padding: 8px 16px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+  .api-btn:hover { background: #ff7a2e; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="avatar">採</div>
+  <div class="header-info">
+    <h1>商談採点AI</h1>
+    <p>MONSTER BANK — Powered by 鳥羽チェックリスト</p>
+  </div>
+  <div class="mode-badge">SCORING MODE</div>
+</header>
+
+<div id="app">
+  <!-- APIキー入力画面 -->
+  <div id="setup-screen" class="api-setup">
+    <h2>🔑 最初にAPIキーを設定してください</h2>
+    <p>AnthropicのAPIキーを入力してください。キーはこのブラウザにのみ保存され、外部には送信されません。<br>取得：<a href="https://console.anthropic.com" target="_blank" style="color:var(--accent2)">console.anthropic.com</a></p>
+    <div class="api-input-row">
+      <input type="password" class="api-input" id="api-key-input" placeholder="sk-ant-..." />
+      <button class="api-btn" onclick="saveApiKey()">保存して開始</button>
+    </div>
+  </div>
+
+  <!-- チャット画面（初期非表示） -->
+  <div id="chat-screen" style="display:none; flex:1; flex-direction:column; height:calc(100vh - 57px);">
+    <div id="messages">
+      <div class="msg ai">
+        <div class="msg-avatar">採</div>
+        <div class="bubble">Nottaの文字起こしをここに貼り付けてください。
+鳥羽チェックリスト22項目で自動採点して、改善ポイントを出します。
+
+貼り付けるだけでOKです。</div>
+      </div>
+    </div>
+    <footer>
+      <div class="input-row">
+        <textarea id="input" placeholder="Nottaの文字起こしをここに貼り付け..." rows="1"></textarea>
+        <button id="send"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
+      </div>
+      <div class="hint">文字起こしを貼り付けてEnter / Shift+Enterで改行　|　<span id="key-status" style="color:var(--green)"></span> <a href="#" onclick="resetKey()" style="color:var(--text-muted);font-size:9px">APIキーを変更</a></div>
+    </footer>
+  </div>
+</div>
+
+<script>
+const SYSTEM_PROMPT = `あなたはモンスターバンク株式会社の営業コーチです。
+鳥羽和真代表のチェックリストをもとに、商談の文字起こしテキストを採点してください。
+
+## 採点チェックリスト（22項目）
+
+### Phase1 冒頭5分（4項目）
+1. 相手が前のめり・メモを取る・質問してくるなど温度感が高いか
+2. 商談に来た理由を確認したか（「どういう背景がありますか？」）
+3. 決裁権を確認したか（「最終判断はされますか？」）
+4. 時間感覚を確認したか（「何時までお時間いただけますか？」）
+
+### Phase2 ヒアリング（6項目）
+5. 具体的な数字（売上・利益・顧客数）を聞いたか
+6. 課題がいつからか・過去に何を試したかを聞いたか
+7. 課題の優先度を確認したか（「何番目くらいの優先度ですか？」）
+8. 予算感を確認したか
+9. 意思決定のタイムラインを確認したか（「いつ頃スタートしたいですか？」）
+10. 過去の失敗体験を聞いたか
+
+### Phase3 提案（4項目）
+11. ヒアリング内容を引用してサービスと課題を繋げたか（「だから〜が必要」）
+12. やらないリスクを相手に言わせたか（「このまま半年経つとどうなりそうですか？」）
+13. 試着（Entry/小さく始める）の提案をしたか
+14. 相手の状況に合ったプランを提案したか
+
+### Phase4 クロージング（5項目）
+15. 「ぶっちゃけどうでしたか？」など本音を引き出したか
+16. 「検討します」を「何を確認できれば決断できますか？」に返したか
+17. 懸念点を引き出したか（「一番ネックになりそうなのは何ですか？」）
+18. 次のアクションを日程含めて合意したか
+19. 紹介依頼をしたか
+
+### 商談全体の判断（3項目）
+20. 相手の課題が明確に把握できているか（テキストから判断）
+21. 予算・決裁権・タイムラインが揃っているか
+22. 温度感（本音orお世辞）が判断できているか
+
+## 出力フォーマット
+
+以下のJSON形式のみ出力してください。前後の説明文・コードブロック記号は不要です。
+
+{
+  "total": "XX/22",
+  "score_number": XX,
+  "overall_comment": "全体的な一言コメント（50文字以内）",
+  "phases": [
+    {
+      "name": "Phase1 冒頭5分",
+      "items": [
+        {"id": 1, "item": "温度感の確認", "result": "ok", "comment": "コメント"},
+        {"id": 2, "item": "商談理由の確認", "result": "warn", "comment": "コメント"},
+        {"id": 3, "item": "決裁権の確認", "result": "ng", "comment": "コメント"},
+        {"id": 4, "item": "時間感覚の確認", "result": "ok", "comment": "コメント"}
+      ]
+    },
+    {
+      "name": "Phase2 ヒアリング",
+      "items": [
+        {"id": 5, "item": "数字のヒアリング", "result": "ok", "comment": ""},
+        {"id": 6, "item": "課題の深さ", "result": "warn", "comment": ""},
+        {"id": 7, "item": "課題の優先度", "result": "ng", "comment": ""},
+        {"id": 8, "item": "予算感の確認", "result": "ok", "comment": ""},
+        {"id": 9, "item": "タイムライン確認", "result": "ng", "comment": ""},
+        {"id": 10, "item": "過去の失敗体験", "result": "warn", "comment": ""}
+      ]
+    },
+    {
+      "name": "Phase3 提案",
+      "items": [
+        {"id": 11, "item": "課題とサービスの接続", "result": "ok", "comment": ""},
+        {"id": 12, "item": "やらないリスクを言わせたか", "result": "ng", "comment": ""},
+        {"id": 13, "item": "試着の提案", "result": "warn", "comment": ""},
+        {"id": 14, "item": "プランの適切さ", "result": "ok", "comment": ""}
+      ]
+    },
+    {
+      "name": "Phase4 クロージング",
+      "items": [
+        {"id": 15, "item": "本音の引き出し", "result": "ng", "comment": ""},
+        {"id": 16, "item": "検討しますへの返し", "result": "ng", "comment": ""},
+        {"id": 17, "item": "懸念点の引き出し", "result": "warn", "comment": ""},
+        {"id": 18, "item": "次アクションの合意", "result": "ng", "comment": ""},
+        {"id": 19, "item": "紹介依頼", "result": "ng", "comment": ""}
+      ]
+    },
+    {
+      "name": "商談全体の判断",
+      "items": [
+        {"id": 20, "item": "相手の課題把握", "result": "ok", "comment": ""},
+        {"id": 21, "item": "BANTの揃い", "result": "warn", "comment": ""},
+        {"id": 22, "item": "温度感の判断", "result": "ok", "comment": ""}
+      ]
+    }
+  ],
+  "improvements": [
+    "改善点1：具体的にこうすべきだった",
+    "改善点2：具体的にこうすべきだった",
+    "改善点3：具体的にこうすべきだった"
+  ]
+}
+
+resultの値は "ok"（できている）、"warn"（不十分）、"ng"（できていない）の3種類のみ。`;
+
+let API_KEY = '';
+
+function saveApiKey() {
+  const val = document.getElementById('api-key-input').value.trim();
+  if (!val.startsWith('sk-ant-')) {
+    alert('APIキーは sk-ant- から始まる形式で入力してください');
+    return;
+  }
+  API_KEY = val;
+  localStorage.setItem('mb_scoring_key', val);
+  document.getElementById('setup-screen').style.display = 'none';
+  const chat = document.getElementById('chat-screen');
+  chat.style.display = 'flex';
+  document.getElementById('key-status').textContent = 'APIキー設定済';
+}
+
+function resetKey() {
+  localStorage.removeItem('mb_scoring_key');
+  API_KEY = '';
+  document.getElementById('chat-screen').style.display = 'none';
+  document.getElementById('setup-screen').style.display = 'block';
+}
+
+window.addEventListener('load', () => {
+  const saved = localStorage.getItem('mb_scoring_key');
+  if (saved && saved.startsWith('sk-ant-')) {
+    API_KEY = saved;
+    document.getElementById('setup-screen').style.display = 'none';
+    const chat = document.getElementById('chat-screen');
+    chat.style.display = 'flex';
+    document.getElementById('key-status').textContent = 'APIキー設定済';
+  }
+});
+
+function showTyping() {
+  const messagesEl = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = 'msg ai'; div.id = 'typing';
+  const av = document.createElement('div'); av.className = 'msg-avatar'; av.textContent = '採';
+  const b = document.createElement('div'); b.className = 'bubble typing';
+  b.innerHTML = '<span></span><span></span><span></span>';
+  div.appendChild(av); div.appendChild(b);
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function removeTyping() {
+  const el = document.getElementById('typing'); if (el) el.remove();
+}
+
+function addUserMsg(text) {
+  const messagesEl = document.getElementById('messages');
+  const div = document.createElement('div'); div.className = 'msg user';
+  const av = document.createElement('div'); av.className = 'msg-avatar'; av.textContent = 'あ';
+  const b = document.createElement('div'); b.className = 'bubble';
+  b.textContent = text.length > 100 ? text.substring(0, 80) + '…（文字起こし全文）' : text;
+  div.appendChild(av); div.appendChild(b);
+  messagesEl.appendChild(div); messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function addAiMsg(text) {
+  const messagesEl = document.getElementById('messages');
+  const div = document.createElement('div'); div.className = 'msg ai';
+  const av = document.createElement('div'); av.className = 'msg-avatar'; av.textContent = '採';
+  const b = document.createElement('div'); b.className = 'bubble'; b.textContent = text;
+  div.appendChild(av); div.appendChild(b);
+  messagesEl.appendChild(div); messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function renderScore(data) {
+  const messagesEl = document.getElementById('messages');
+  const div = document.createElement('div'); div.className = 'msg ai';
+  const av = document.createElement('div'); av.className = 'msg-avatar'; av.textContent = '採';
+  const card = document.createElement('div'); card.className = 'score-card';
+
+  const score = data.score_number;
+  const color = score >= 18 ? '#4ade80' : score >= 12 ? '#fbbf24' : '#f87171';
+
+  let html = `
+    <div class="score-header">
+      <div>
+        <div class="score-title">商談採点レポート</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${data.overall_comment}</div>
+      </div>
+      <div class="total-score" style="color:${color}">${data.total}</div>
+    </div>`;
+
+  data.phases.forEach(phase => {
+    html += `<div class="score-section"><div class="score-section-title">${phase.name}</div>`;
+    phase.items.forEach(item => {
+      const tagClass = item.result === 'ok' ? 'tag-ok' : item.result === 'warn' ? 'tag-warn' : 'tag-ng';
+      const tagLabel = item.result === 'ok' ? '◎' : item.result === 'warn' ? '△' : '✕';
+      html += `<div class="score-row">
+        <span class="score-tag ${tagClass}">${tagLabel}</span>
+        <div class="score-item">
+          <div>${item.item}</div>
+          ${item.comment ? `<div class="score-comment">${item.comment}</div>` : ''}
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  });
+
+  if (data.improvements && data.improvements.length > 0) {
+    html += `<div class="improve-box"><div class="improve-title">▶ 次回への改善ポイント</div>`;
+    data.improvements.forEach(imp => {
+      html += `<div class="improve-item">${imp}</div>`;
+    });
+    html += `</div>`;
+  }
+
+  card.innerHTML = html;
+  div.appendChild(av); div.appendChild(card);
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+let isLoading = false;
+
+async function send() {
+  const inputEl = document.getElementById('input');
+  const sendBtn = document.getElementById('send');
+  const text = inputEl.value.trim();
+  if (!text || isLoading) return;
+  inputEl.value = ''; inputEl.style.height = 'auto';
+  isLoading = true; sendBtn.disabled = true;
+
+  addUserMsg(text);
+  showTyping();
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': API_KEY,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2000,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: `以下の商談文字起こしを採点してください：\n\n${text}` }]
+      })
+    });
+
+    const data = await res.json();
+    removeTyping();
+    const raw = data.content?.[0]?.text || '';
+
+    try {
+      const clean = raw.replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(clean);
+      renderScore(parsed);
+    } catch (e) {
+      addAiMsg(raw);
+    }
+  } catch (e) {
+    removeTyping();
+    addAiMsg('通信エラーが発生しました。APIキーを確認してもう一度試してください。');
+  }
+
+  isLoading = false; sendBtn.disabled = false; inputEl.focus();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const sendBtn = document.getElementById('send');
+  const inputEl = document.getElementById('input');
+  if (sendBtn) sendBtn.addEventListener('click', send);
+  if (inputEl) {
+    inputEl.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
+    inputEl.addEventListener('input', () => { inputEl.style.height = 'auto'; inputEl.style.height = Math.min(inputEl.scrollHeight, 200) + 'px'; });
+  }
+});
+</script>
+</body>
+</html>
