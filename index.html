@@ -3,361 +3,438 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商談採点AI — Monster Bank</title>
+<title>商談採点AI v3 — Monster Bank</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=Space+Mono:wght@400;700&display=swap');
   :root {
-    --bg: #0a0a0a; --surface: #141414; --surface2: #1e1e1e;
-    --border: #2a2a2a; --accent: #ff5c00; --accent2: #ffb800;
-    --text: #f0f0f0; --text-muted: #666;
-    --green: #4ade80; --yellow: #fbbf24; --red: #f87171; --blue: #60a5fa;
+    --bg:#0a0a0a;--surface:#141414;--surface2:#1e1e1e;--border:#2a2a2a;
+    --accent:#ff5c00;--accent2:#ffb800;--text:#f0f0f0;--text-muted:#666;
+    --green:#4ade80;--yellow:#fbbf24;--red:#f87171;--blue:#60a5fa;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: 'Zen Kaku Gothic New', sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-  header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; background: var(--surface); flex-shrink: 0; }
-  .avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #ff5c00, #ffb800); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 13px; color: #000; flex-shrink: 0; }
-  .header-info h1 { font-size: 13px; font-weight: 700; }
-  .header-info p { font-size: 9px; color: var(--text-muted); font-family: 'Space Mono', monospace; margin-top: 1px; }
-  .mode-badge { margin-left: auto; font-family: 'Space Mono', monospace; font-size: 9px; color: var(--accent2); border: 1px solid var(--accent2); padding: 2px 8px; border-radius: 20px; }
-  #messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
-  .msg { display: flex; gap: 8px; max-width: 92%; animation: fadeUp 0.3s ease; }
-  @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-  .msg.user { align-self: flex-end; flex-direction: row-reverse; }
-  .msg-avatar { width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; }
-  .msg.ai .msg-avatar { background: linear-gradient(135deg, #ff5c00, #ffb800); color: #000; }
-  .msg.user .msg-avatar { background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border); }
-  .bubble { padding: 10px 14px; border-radius: 14px; font-size: 13px; line-height: 1.7; white-space: pre-wrap; }
-  .msg.ai .bubble { background: var(--surface); border: 1px solid var(--border); border-top-left-radius: 4px; }
-  .msg.user .bubble { background: #1a1a2e; border: 1px solid #2a2a4a; border-top-right-radius: 4px; }
-  .score-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px; font-size: 12px; line-height: 1.6; border-top-left-radius: 4px; }
-  .score-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-  .score-title { font-size: 13px; font-weight: 700; }
-  .total-score { font-family: 'Space Mono', monospace; font-size: 22px; font-weight: 700; }
-  .score-section { margin-bottom: 10px; }
-  .score-section-title { font-size: 11px; color: var(--text-muted); font-family: 'Space Mono', monospace; margin-bottom: 6px; letter-spacing: 0.05em; }
-  .score-row { display: flex; align-items: flex-start; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--border); }
-  .score-row:last-child { border-bottom: none; }
-  .score-tag { flex-shrink: 0; font-size: 10px; font-family: 'Space Mono', monospace; padding: 1px 6px; border-radius: 10px; }
-  .tag-ok { background: #14532d; color: var(--green); }
-  .tag-warn { background: #451a03; color: var(--yellow); }
-  .tag-ng { background: #450a0a; color: var(--red); }
-  .score-item { flex: 1; color: var(--text); }
-  .score-comment { color: var(--text-muted); font-size: 11px; }
-  .improve-box { background: #0f172a; border: 1px solid #1e3a5f; border-radius: 8px; padding: 10px 12px; margin-top: 10px; }
-  .improve-title { font-size: 11px; color: var(--blue); font-family: 'Space Mono', monospace; margin-bottom: 6px; }
-  .improve-item { color: var(--text); font-size: 11px; padding: 3px 0; border-bottom: 1px solid #1e3a5f; }
-  .improve-item:last-child { border-bottom: none; }
-  .typing { display: flex; gap: 4px; padding: 12px 14px; align-items: center; }
-  .typing span { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); animation: bounce 1.2s infinite; }
-  .typing span:nth-child(2) { animation-delay: 0.2s; }
-  .typing span:nth-child(3) { animation-delay: 0.4s; }
-  @keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-5px)} }
-  footer { padding: 10px 16px 14px; border-top: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
-  .input-row { display: flex; gap: 8px; align-items: flex-end; }
-  textarea { flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; color: var(--text); font-family: 'Zen Kaku Gothic New', sans-serif; font-size: 12px; padding: 10px 14px; resize: none; min-height: 40px; max-height: 200px; outline: none; transition: border-color 0.2s; line-height: 1.5; }
-  textarea:focus { border-color: var(--accent); }
-  textarea::placeholder { color: var(--text-muted); }
-  button#send { width: 40px; height: 40px; border-radius: 12px; background: var(--accent); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; flex-shrink: 0; }
-  button#send:hover { background: #ff7a2e; transform: scale(1.05); }
-  button#send:disabled { background: var(--border); cursor: not-allowed; transform: none; }
-  button#send svg { width: 16px; height: 16px; fill: #000; }
-  .hint { font-size: 9px; color: var(--text-muted); margin-top: 6px; font-family: 'Space Mono', monospace; }
-  .api-setup { background: var(--surface); border: 1px solid var(--accent); border-radius: 12px; padding: 16px; margin: 16px; }
-  .api-setup h2 { font-size: 13px; font-weight: 700; margin-bottom: 8px; color: var(--accent2); }
-  .api-setup p { font-size: 12px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.6; }
-  .api-input-row { display: flex; gap: 8px; }
-  .api-input { flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'Space Mono', monospace; font-size: 11px; padding: 8px 12px; outline: none; }
-  .api-input:focus { border-color: var(--accent); }
-  .api-btn { background: var(--accent); border: none; color: #000; font-family: 'Zen Kaku Gothic New', sans-serif; font-size: 12px; font-weight: 700; padding: 8px 16px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
-  .api-btn:hover { background: #ff7a2e; }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Zen Kaku Gothic New',sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+  header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;background:var(--surface);flex-shrink:0;}
+  .avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#ff5c00,#ffb800);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;color:#000;flex-shrink:0;}
+  .hinfo h1{font-size:13px;font-weight:700;}
+  .hinfo p{font-size:9px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-top:1px;}
+  .mbadge{margin-left:auto;font-family:'Space Mono',monospace;font-size:9px;color:var(--accent2);border:1px solid var(--accent2);padding:2px 8px;border-radius:20px;}
+  #messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px;scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+  .msg{display:flex;gap:8px;max-width:94%;animation:fadeUp .3s ease;}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+  .msg.user{align-self:flex-end;flex-direction:row-reverse;}
+  .msg-av{width:26px;height:26px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;}
+  .msg.ai .msg-av{background:linear-gradient(135deg,#ff5c00,#ffb800);color:#000;}
+  .msg.user .msg-av{background:var(--surface2);color:var(--text-muted);border:1px solid var(--border);}
+  .bubble{padding:10px 14px;border-radius:14px;font-size:13px;line-height:1.7;white-space:pre-wrap;}
+  .msg.ai .bubble{background:var(--surface);border:1px solid var(--border);border-top-left-radius:4px;}
+  .msg.user .bubble{background:#1a1a2e;border:1px solid #2a2a4a;border-top-right-radius:4px;}
+  .typing{display:flex;gap:4px;padding:12px 14px;align-items:center;}
+  .typing span{width:5px;height:5px;border-radius:50%;background:var(--accent);animation:bounce 1.2s infinite;}
+  .typing span:nth-child(2){animation-delay:.2s}.typing span:nth-child(3){animation-delay:.4s}
+  @keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
+  footer{padding:10px 16px 14px;border-top:1px solid var(--border);background:var(--surface);flex-shrink:0;}
+  .irow{display:flex;gap:8px;align-items:flex-end;}
+  textarea{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:12px;color:var(--text);font-family:'Zen Kaku Gothic New',sans-serif;font-size:12px;padding:10px 14px;resize:none;min-height:40px;max-height:200px;outline:none;transition:border-color .2s;line-height:1.5;}
+  textarea:focus{border-color:var(--accent);}
+  textarea::placeholder{color:var(--text-muted);}
+  #send{width:40px;height:40px;border-radius:12px;background:var(--accent);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0;}
+  #send:hover{background:#ff7a2e;transform:scale(1.05);}
+  #send:disabled{background:var(--border);cursor:not-allowed;transform:none;}
+  #send svg{width:16px;height:16px;fill:#000;}
+  .hint{font-size:9px;color:var(--text-muted);margin-top:6px;font-family:'Space Mono',monospace;}
+  .api-setup{background:var(--surface);border:1px solid var(--accent);border-radius:12px;padding:16px;margin:16px;}
+  .api-setup h2{font-size:13px;font-weight:700;margin-bottom:8px;color:var(--accent2);}
+  .api-setup p{font-size:12px;color:var(--text-muted);margin-bottom:10px;line-height:1.6;}
+  .api-row{display:flex;gap:8px;}
+  .api-inp{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Space Mono',monospace;font-size:11px;padding:8px 12px;outline:none;}
+  .api-inp:focus{border-color:var(--accent);}
+  .api-btn{background:var(--accent);border:none;color:#000;font-family:'Zen Kaku Gothic New',sans-serif;font-size:12px;font-weight:700;padding:8px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;}
+  .api-btn:hover{background:#ff7a2e;}
+  /* Score Card */
+  .sc{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;font-size:12px;line-height:1.6;border-top-left-radius:4px;}
+  .sc-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;gap:12px;}
+  .sc-title{font-size:13px;font-weight:700;margin-bottom:3px;}
+  .sc-comment{font-size:11px;color:var(--text-muted);line-height:1.5;}
+  .sc-total{font-family:'Space Mono',monospace;font-size:32px;font-weight:700;white-space:nowrap;text-align:right;}
+  .sc-denom{font-size:13px;color:var(--text-muted);}
+  /* 3 gauge blocks */
+  .gauges{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;}
+  .gauge{background:var(--surface2);border-radius:10px;padding:10px 12px;}
+  .gauge-label{font-size:9px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:4px;}
+  .gauge-score{font-family:'Space Mono',monospace;font-size:18px;font-weight:700;margin-bottom:5px;}
+  .gauge-track{height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
+  .gauge-fill{height:100%;border-radius:2px;transition:width .6s ease;}
+  .g-toba .gauge-score{color:var(--accent2);} .g-toba .gauge-fill{background:var(--accent2);}
+  .g-dig .gauge-score{color:#f472b6;} .g-dig .gauge-fill{background:#f472b6;}
+  .g-rel .gauge-score{color:#2dd4bf;} .g-rel .gauge-fill{background:#2dd4bf;}
+  /* Sections */
+  .section{margin-bottom:14px;}
+  .sec-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border);}
+  .sec-badge{font-size:9px;font-family:'Space Mono',monospace;padding:2px 8px;border-radius:10px;font-weight:700;}
+  .sb-toba{background:#2d1a00;color:var(--accent2);}
+  .sb-dig{background:#3d0d2e;color:#f472b6;}
+  .sb-rel{background:#0d2e2e;color:#2dd4bf;}
+  .sec-name{font-size:12px;font-weight:700;}
+  .sec-pts{font-size:10px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-left:auto;}
+  /* Rows */
+  .row{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid #1a1a1a;}
+  .row:last-child{border-bottom:none;}
+  .row-pts{flex-shrink:0;font-family:'Space Mono',monospace;font-size:11px;font-weight:700;min-width:32px;text-align:center;padding:2px 4px;border-radius:6px;}
+  .pts-full{background:#14532d;color:var(--green);}
+  .pts-half{background:#451a03;color:var(--yellow);}
+  .pts-zero{background:#450a0a;color:var(--red);}
+  .pts-bonus{background:#1a2d4a;color:var(--blue);}
+  .pts-skip{background:#1e1e1e;color:var(--text-muted);}
+  .row-body{flex:1;}
+  .row-name{font-weight:700;font-size:12px;color:var(--text);}
+  .row-comment{font-size:11px;color:var(--text-muted);margin-top:2px;line-height:1.5;}
+  .row-found{font-size:11px;color:var(--green);margin-top:2px;line-height:1.5;}
+  .row-good{display:inline-block;font-size:9px;background:#14532d;color:var(--green);padding:1px 6px;border-radius:8px;margin-left:4px;font-family:'Space Mono',monospace;}
+  /* Sub rows for kankeikouchiku */
+  .sub-section{background:var(--surface2);border-radius:8px;padding:8px 10px;margin-bottom:6px;}
+  .sub-label{font-size:10px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:4px;}
+  .sub-score{font-family:'Space Mono',monospace;font-size:13px;font-weight:700;}
+  .sub-detail{font-size:11px;color:var(--text-muted);margin-top:2px;line-height:1.5;}
+  /* Improve */
+  .improve{background:#0f172a;border:1px solid #1e3a5f;border-radius:8px;padding:10px 12px;margin-top:12px;}
+  .improve-title{font-size:10px;color:var(--blue);font-family:'Space Mono',monospace;margin-bottom:6px;letter-spacing:.05em;}
+  .improve-item{color:var(--text);font-size:11px;padding:4px 0;border-bottom:1px solid #1e3a5f;line-height:1.5;}
+  .improve-item:last-child{border-bottom:none;}
 </style>
 </head>
 <body>
 <header>
   <div class="avatar">採</div>
-  <div class="header-info">
+  <div class="hinfo">
     <h1>商談採点AI</h1>
-    <p>MONSTER BANK — 鳥羽式チェックリスト v2</p>
+    <p>MONSTER BANK — v3.0 新郷強化版 / 100点満点</p>
   </div>
-  <div class="mode-badge">SCORING MODE</div>
+  <div class="mbadge">SHINJO MODE</div>
 </header>
 
 <div id="setup-screen" class="api-setup">
-  <h2>🔑 最初にAPIキーを設定してください</h2>
-  <p>AnthropicのAPIキーを入力してください。キーはこのブラウザにのみ保存されます。<br>取得：<a href="https://console.anthropic.com" target="_blank" style="color:var(--accent2)">console.anthropic.com</a> → API keys → Create Key</p>
-  <div class="api-input-row">
-    <input type="password" class="api-input" id="api-key-input" placeholder="sk-ant-..." />
-    <button class="api-btn" onclick="saveApiKey()">保存して開始</button>
+  <h2>🔑 APIキーを設定してください</h2>
+  <p>AnthropicのAPIキーを入力してください。ブラウザにのみ保存されます。<br>取得：<a href="https://console.anthropic.com" target="_blank" style="color:var(--accent2)">console.anthropic.com</a> → API keys → Create Key</p>
+  <div class="api-row">
+    <input type="password" class="api-inp" id="api-key-input" placeholder="sk-ant-...">
+    <button class="api-btn" onclick="saveKey()">保存して開始</button>
   </div>
 </div>
 
-<div id="chat-screen" style="display:none; flex:1; flex-direction:column; height:calc(100vh - 57px);">
+<div id="chat-screen" style="display:none;flex:1;flex-direction:column;height:calc(100vh - 57px);">
   <div id="messages">
     <div class="msg ai">
-      <div class="msg-avatar">採</div>
-      <div class="bubble">Nottaの文字起こしをここに貼り付けてください。
-鳥羽式チェックリスト25項目で自動採点します。
+      <div class="msg-av">採</div>
+      <div class="bubble">商談の文字起こし・要約を貼り付けてください。
+100点満点・3ブロックで採点します。
 
-貼り付けるだけでOKです。</div>
+🟠 鳥羽哲学（40点）: 提案・クロージングの型
+🩷 深掘り力（30点）: 商談でしか聞けない情報を引き出せたか
+🩵 関係構築力（30点）: 共感・自己開示・ネガティブ連成</div>
     </div>
   </div>
   <footer>
-    <div class="input-row">
-      <textarea id="input" placeholder="Nottaの文字起こしをここに貼り付け..." rows="1"></textarea>
+    <div class="irow">
+      <textarea id="input" placeholder="商談の文字起こし・要約をここに貼り付け..." rows="1"></textarea>
       <button id="send"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
     </div>
-    <div class="hint">文字起こしを貼り付けてEnter　|　<span id="key-status" style="color:var(--green)"></span> <a href="#" onclick="resetKey()" style="color:var(--text-muted);font-size:9px">APIキーを変更</a></div>
+    <div class="hint">貼り付けてEnter　|　<span id="key-status" style="color:var(--green)"></span> <a href="#" onclick="resetKey()" style="color:var(--text-muted);font-size:9px">APIキーを変更</a></div>
   </footer>
 </div>
 
 <script>
-const SYSTEM_PROMPT = `あなたはモンスターバンク株式会社の営業コーチです。
-代表・鳥羽和真の実際の商談哲学をもとにしたチェックリストで採点してください。
+const SYSTEM = `あなたはモンスターバンク株式会社の営業コーチです。
+商談の文字起こし・要約を以下のルールで100点満点採点してください。
 
-## 鳥羽式チェックリスト（25項目）
+━━━━━━━━━━━━━━━━━━━━━━━
+【ブロック①】鳥羽哲学 40点 = 10項目 × 4点
+━━━━━━━━━━━━━━━━━━━━━━━
+各項目：4点（完全にできている）/ 2点（不十分・惜しい）/ 0点（できていない）
 
-### Phase1 冒頭5分（4項目）
-1. 相手が前のめり・メモを取る・質問してくるなど温度感が高いか
-2. 商談に来た理由・背景を確認したか
-3. 決裁権を確認したか（「最終判断はされますか？」）
-4. 時間感覚を確認したか
+T1. 課題の本質把握：表面課題でなく「なぜその課題が起きているか」の本質を掴んだか
+T2. 順番の設計：いきなり売らず「まず情報提供→信頼→提案」の順番を作ったか
+T3. 提案と課題の接続：ヒアリングで出た課題を引用して「だからうちが必要」と繋げたか
+T4. 複数提案軸の提示：1つの提案だけでなく複数の協業・取引軸を同時に出したか
+T5. 成果保証・リスク除去：相手が断りにくい条件設計（全額返金・成果保証等）をしたか
+T6. 期待値の調整：一方向でなく複数面のメリットを伝えて期待値を現実的に設計したか
+T7. やらないリスクの提示：現状維持のリスクを相手に言わせたか
+T8. 本音の引き出し：「ぶっちゃけどうでしたか？」など相手の本音を引き出したか
+T9. KPI・使用イメージの擦り合わせ（最重要・2倍評価）：受注後のKPI・具体的な使用イメージをお互い確認したか ※このT9のみ満点8点・0点の2択（2倍評価）
+T10. 次アクションの合意：日程・担当者を含めた具体的な次のアクションを合意して終わったか
 
-### Phase2 ヒアリング（6項目）
-5. 具体的な数字（売上・利益・顧客数）を聞いたか
-6. 課題がいつからか・過去に何を試したかを聞いたか
-7. 課題の優先度を確認したか
-8. 予算感を確認したか
-9. 意思決定のタイムラインを確認したか
-10. 過去の失敗体験・うまくいかなかった理由を聞いたか
+※T9は8点/0点の2択。T9以外は4点/2点/0点。
 
-### Phase3 提案（5項目）
-11. ヒアリング内容を引用してサービスと課題を繋げたか（「だから〜が必要」）
-12. やらないリスクを相手に言わせたか
-13. 一方向の価値提案になっていないか（複数の面でメリットを伝えたか）※鳥羽重要視
-14. 期待値の調整ができたか（複数面のメリットを伝えて期待値を現実的にしたか）※鳥羽重要視
-15. 相手の状況に合ったプランを提案したか（Entry/Middle/High-End）
+━━━━━━━━━━━━━━━━━━━━━━━
+【ブロック②】深掘り力 30点 = 6項目 × 5点
+━━━━━━━━━━━━━━━━━━━━━━━
+各項目：5点（引き出せている）/ 2点（少し触れた程度）/ 0点（引き出せていない）
+※「HPや事前調査でわかる情報」ではなく「商談でしか聞けない情報」を引き出せたかを評価する
 
-### Phase4 クロージング（7項目）
-16. 「ぶっちゃけどうでしたか？」など本音を引き出したか
-17. 「検討します」を「何を確認できれば決断できますか？」に返したか
-18. 懸念点・断る理由を引き出したか※鳥羽重要視（断る理由が見つからずに合意してしまうのが最悪）
-19. KPIの設定まで話せたか（受注後の目標数値を擦り合わせたか）※鳥羽最重要
-20. 具体的な使用イメージをお互い擦り合わせたか※鳥羽最重要
-21. 次のアクションを日程含めて合意したか
-22. 紹介依頼をしたか
+D1. 課題の深層・起源・期間：課題がいつから・なぜ起きているのか・何年続いているかを聞いたか
+D2. 過去の失敗体験・試したこと：過去に試みた施策・うまくいかなかった理由を引き出したか
+D3. 経営者個人の想い・コンプレックス：事業に対する個人的な感情・悩み・こだわりを引き出したか
+D4. 予算の内訳・財務状況の実態：予算感だけでなく資金の内訳・財務の実状・融資の状況を聞いたか
+D5. 相手の商材・事業のネガティブポイント：相手自身が感じている自社サービスの弱み・懸念を引き出したか
+D6. 相手が薄々感じていることの言語化と共感連成：相手が言語化できていなかった本音を代わりに言語化し、相手から「そうなんです！」という共感反応を得られたか
 
-### 「まだ早い」への対応（1項目）
-23. 相手から「まだ早い」「今じゃない」と言われた場合、その理由を掘ってソリューションを提案したか（理由を聞かずに引き下がった場合はNG）
+━━━━━━━━━━━━━━━━━━━━━━━
+【ブロック③】関係構築力 30点
+━━━━━━━━━━━━━━━━━━━━━━━
 
-### 商談全体の判断（2項目）
-24. 相手の課題・状況が明確に把握できているか
-25. 連絡が途絶えるリスクがあるか（KPI未設定・使用イメージ未擦り合わせ・上限関係になっていないか）
+■ 共感力 10点
+- 回数スコア（5点）：商談中に共感・受容の発言が何回あったか（0回=0点、1〜2回=2点、3〜4回=3点、5回以上=5点）
+- 質スコア（5点）：共感が表面的な相槌だけか、それとも相手の状況・感情に寄り添った深い共感があったか（深い共感あり=5点、普通=3点、相槌のみ=1点、なし=0点）
 
-## 出力フォーマット
+■ 自己開示力 10点
+- 回数スコア（5点）：自分の失敗・経験・本音を先に話した回数（0回=0点、1回=2点、2回=4点、3回以上=5点）
+- 質スコア（5点）：自己開示が「うちも同じです」程度か、それとも具体的な数字・エピソードを伴う深い開示だったか（深い開示=5点、普通=3点、薄い=1点、なし=0点）
 
-JSON形式のみ出力。前後の説明文・コードブロック記号は不要。
+■ ネガティブ連成 10点
+- 相手の商材・事業のネガティブポイントや悩みを聞けたか（D5と連動）
+- 相手が薄々感じていたことを言語化して共感を得られたか（D6と連動）
+- 引き出せた内容を具体的に記載すること。引き出せていない場合は「引き出せていません」と記載。
+- 採点：完全に引き出せた=10点、部分的に引き出せた=5点、引き出せていない=0点
 
+━━━━━━━━━━━━━━━━━━━━━━━
+出力フォーマット（JSONのみ・前後の説明不要）
+━━━━━━━━━━━━━━━━━━━━━━━
 {
-  "total": "XX/25",
-  "score_number": XX,
-  "overall_comment": "全体的な一言コメント（50文字以内）",
-  "phases": [
-    {
-      "name": "Phase1 冒頭5分",
-      "items": [
-        {"id": 1, "item": "温度感の確認", "result": "ok", "comment": "コメント"},
-        {"id": 2, "item": "商談理由の確認", "result": "warn", "comment": "コメント"},
-        {"id": 3, "item": "決裁権の確認", "result": "ng", "comment": "コメント"},
-        {"id": 4, "item": "時間感覚の確認", "result": "ok", "comment": "コメント"}
-      ]
-    },
-    {
-      "name": "Phase2 ヒアリング",
-      "items": [
-        {"id": 5, "item": "数字のヒアリング", "result": "ok", "comment": ""},
-        {"id": 6, "item": "課題の深さ", "result": "warn", "comment": ""},
-        {"id": 7, "item": "課題の優先度", "result": "ng", "comment": ""},
-        {"id": 8, "item": "予算感の確認", "result": "ok", "comment": ""},
-        {"id": 9, "item": "タイムライン確認", "result": "ng", "comment": ""},
-        {"id": 10, "item": "過去の失敗体験", "result": "warn", "comment": ""}
-      ]
-    },
-    {
-      "name": "Phase3 提案",
-      "items": [
-        {"id": 11, "item": "課題とサービスの接続", "result": "ok", "comment": ""},
-        {"id": 12, "item": "やらないリスクを言わせたか", "result": "ng", "comment": ""},
-        {"id": 13, "item": "【重要】複数面でのメリット提案", "result": "warn", "comment": ""},
-        {"id": 14, "item": "【重要】期待値の調整", "result": "ng", "comment": ""},
-        {"id": 15, "item": "プランの適切さ", "result": "ok", "comment": ""}
-      ]
-    },
-    {
-      "name": "Phase4 クロージング",
-      "items": [
-        {"id": 16, "item": "本音の引き出し", "result": "ng", "comment": ""},
-        {"id": 17, "item": "検討しますへの返し", "result": "ng", "comment": ""},
-        {"id": 18, "item": "【重要】断る理由の引き出し", "result": "warn", "comment": ""},
-        {"id": 19, "item": "【最重要】KPI設定の擦り合わせ", "result": "ng", "comment": ""},
-        {"id": 20, "item": "【最重要】具体的使用イメージの擦り合わせ", "result": "ok", "comment": ""},
-        {"id": 21, "item": "次アクションの合意", "result": "ng", "comment": ""},
-        {"id": 22, "item": "紹介依頼", "result": "ng", "comment": ""}
-      ]
-    },
-    {
-      "name": "まだ早いへの対応",
-      "items": [
-        {"id": 23, "item": "理由を掘ってソリューション提案", "result": "ok", "comment": ""}
-      ]
-    },
-    {
-      "name": "商談全体の判断",
-      "items": [
-        {"id": 24, "item": "相手の課題・状況の把握", "result": "ok", "comment": ""},
-        {"id": 25, "item": "連絡途絶えリスクの有無", "result": "warn", "comment": ""}
-      ]
-    }
+  "total": 85,
+  "toba_score": 36,
+  "dig_score": 27,
+  "rel_score": 22,
+  "overall_comment": "全体コメント50文字以内",
+  "toba": [
+    {"id": "T1", "name": "課題の本質把握", "pts": 4, "max": 4, "comment": "コメント20文字以内"},
+    {"id": "T2", "name": "順番の設計", "pts": 2, "max": 4, "comment": ""},
+    {"id": "T3", "name": "提案と課題の接続", "pts": 4, "max": 4, "comment": ""},
+    {"id": "T4", "name": "複数提案軸の提示", "pts": 0, "max": 4, "comment": ""},
+    {"id": "T5", "name": "成果保証・リスク除去", "pts": 2, "max": 4, "comment": ""},
+    {"id": "T6", "name": "期待値の調整", "pts": 4, "max": 4, "comment": ""},
+    {"id": "T7", "name": "やらないリスクの提示", "pts": 0, "max": 4, "comment": ""},
+    {"id": "T8", "name": "本音の引き出し", "pts": 4, "max": 4, "comment": ""},
+    {"id": "T9", "name": "KPI・使用イメージの擦り合わせ", "pts": 8, "max": 8, "comment": "※最重要2倍評価"},
+    {"id": "T10", "name": "次アクションの合意", "pts": 4, "max": 4, "comment": ""}
   ],
+  "dig": [
+    {"id": "D1", "name": "課題の深層・起源・期間", "pts": 5, "max": 5, "found": "○○の課題が2年前から続いていることを確認", "comment": ""},
+    {"id": "D2", "name": "過去の失敗体験・試したこと", "pts": 5, "max": 5, "found": "MEO業者に頼んだが効果測定できなかったと語った", "comment": ""},
+    {"id": "D3", "name": "経営者個人の想い・コンプレックス", "pts": 0, "max": 5, "found": "", "comment": "引き出せていません"},
+    {"id": "D4", "name": "予算の内訳・財務状況の実態", "pts": 5, "max": 5, "found": "融資を積極活用したい・不動産担保融資を検討中と確認", "comment": ""},
+    {"id": "D5", "name": "相手の商材のネガティブポイント", "pts": 0, "max": 5, "found": "", "comment": "引き出せていません"},
+    {"id": "D6", "name": "薄々感じていることの言語化→共感連成", "pts": 5, "max": 5, "found": "「情報弱者になっている」という本音を引き出し共感を得た", "comment": "GOOD"}
+  ],
+  "rel": {
+    "empathy": {
+      "count_pts": 3,
+      "quality_pts": 3,
+      "count_detail": "3〜4回の共感発言を確認",
+      "quality_detail": "相手の状況に寄り添った共感あり"
+    },
+    "self_disclosure": {
+      "count_pts": 4,
+      "quality_pts": 3,
+      "count_detail": "2回の自己開示を確認",
+      "quality_detail": "スーパーホテルの実績など具体的なエピソードあり"
+    },
+    "negative": {
+      "pts": 5,
+      "found": "MEO業者への不信感・情報弱者であることの自己認識を引き出した",
+      "comment": "GOOD"
+    }
+  },
   "improvements": [
-    "【最重要】改善点1：具体的にこうすべきだった",
-    "【重要】改善点2：具体的にこうすべきだった",
-    "改善点3：具体的にこうすべきだった"
+    "【鳥羽哲学】改善点：具体的にこうすべきだった",
+    "【深掘り力】改善点：具体的にこうすべきだった",
+    "【関係構築力】改善点：具体的にこうすべきだった"
   ]
-}
-
-resultの値は "ok"（できている）、"warn"（不十分）、"ng"（できていない・該当なし）の3種類のみ。
-KPI設定・使用イメージの擦り合わせは最も重視して採点すること。`;
+}`;
 
 let API_KEY = '';
 
-function saveApiKey() {
-  const val = document.getElementById('api-key-input').value.trim();
-  if (!val.startsWith('sk-ant-')) {
-    alert('APIキーは sk-ant- から始まる形式で入力してください');
-    return;
-  }
-  API_KEY = val;
-  localStorage.setItem('mb_scoring_key', val);
+function saveKey() {
+  const v = document.getElementById('api-key-input').value.trim();
+  if (!v.startsWith('sk-ant-')) { alert('sk-ant- から始まるキーを入力してください'); return; }
+  API_KEY = v;
+  localStorage.setItem('mb_v3_key', v);
   document.getElementById('setup-screen').style.display = 'none';
-  const chat = document.getElementById('chat-screen');
-  chat.style.display = 'flex';
+  document.getElementById('chat-screen').style.display = 'flex';
   document.getElementById('key-status').textContent = 'APIキー設定済';
 }
 
 function resetKey() {
-  localStorage.removeItem('mb_scoring_key');
+  localStorage.removeItem('mb_v3_key');
   API_KEY = '';
   document.getElementById('chat-screen').style.display = 'none';
   document.getElementById('setup-screen').style.display = 'block';
 }
 
 window.addEventListener('load', () => {
-  const saved = localStorage.getItem('mb_scoring_key');
-  if (saved && saved.startsWith('sk-ant-')) {
-    API_KEY = saved;
+  const s = localStorage.getItem('mb_v3_key');
+  if (s && s.startsWith('sk-ant-')) {
+    API_KEY = s;
     document.getElementById('setup-screen').style.display = 'none';
-    const chat = document.getElementById('chat-screen');
-    chat.style.display = 'flex';
+    document.getElementById('chat-screen').style.display = 'flex';
     document.getElementById('key-status').textContent = 'APIキー設定済';
   }
 });
 
 function showTyping() {
-  const messagesEl = document.getElementById('messages');
-  const div = document.createElement('div');
-  div.className = 'msg ai'; div.id = 'typing';
-  const av = document.createElement('div'); av.className = 'msg-avatar'; av.textContent = '採';
+  const m = document.getElementById('messages');
+  const d = document.createElement('div'); d.className = 'msg ai'; d.id = 'typing';
+  const a = document.createElement('div'); a.className = 'msg-av'; a.textContent = '採';
   const b = document.createElement('div'); b.className = 'bubble typing';
   b.innerHTML = '<span></span><span></span><span></span>';
-  div.appendChild(av); div.appendChild(b);
-  messagesEl.appendChild(div);
-  messagesEl.scrollTop = messagesEl.scrollHeight;
+  d.appendChild(a); d.appendChild(b); m.appendChild(d); m.scrollTop = m.scrollHeight;
 }
+function removeTyping() { const e = document.getElementById('typing'); if (e) e.remove(); }
 
-function removeTyping() {
-  const el = document.getElementById('typing'); if (el) el.remove();
-}
-
-function addUserMsg(text) {
-  const messagesEl = document.getElementById('messages');
-  const div = document.createElement('div'); div.className = 'msg user';
-  const av = document.createElement('div'); av.className = 'msg-avatar'; av.textContent = 'あ';
+function addUserMsg(t) {
+  const m = document.getElementById('messages');
+  const d = document.createElement('div'); d.className = 'msg user';
+  const a = document.createElement('div'); a.className = 'msg-av'; a.textContent = 'あ';
   const b = document.createElement('div'); b.className = 'bubble';
-  b.textContent = text.length > 100 ? text.substring(0, 80) + '…（文字起こし全文）' : text;
-  div.appendChild(av); div.appendChild(b);
-  messagesEl.appendChild(div); messagesEl.scrollTop = messagesEl.scrollHeight;
+  b.textContent = t.length > 100 ? t.substring(0, 80) + '…（全文）' : t;
+  d.appendChild(a); d.appendChild(b); m.appendChild(d); m.scrollTop = m.scrollHeight;
 }
 
-function addAiMsg(text) {
-  const messagesEl = document.getElementById('messages');
-  const div = document.createElement('div'); div.className = 'msg ai';
-  const av = document.createElement('div'); av.className = 'msg-avatar'; av.textContent = '採';
-  const b = document.createElement('div'); b.className = 'bubble'; b.textContent = text;
-  div.appendChild(av); div.appendChild(b);
-  messagesEl.appendChild(div); messagesEl.scrollTop = messagesEl.scrollHeight;
+function ptsClass(pts, max) {
+  if (pts === 0) return 'pts-zero';
+  if (pts >= max) return 'pts-full';
+  return 'pts-half';
 }
 
 function renderScore(data) {
-  const messagesEl = document.getElementById('messages');
-  const div = document.createElement('div'); div.className = 'msg ai';
-  const av = document.createElement('div'); av.className = 'msg-avatar'; av.textContent = '採';
-  const card = document.createElement('div'); card.className = 'score-card';
+  const m = document.getElementById('messages');
+  const d = document.createElement('div'); d.className = 'msg ai';
+  const a = document.createElement('div'); a.className = 'msg-av'; a.textContent = '採';
+  const card = document.createElement('div'); card.className = 'sc';
 
-  const score = data.score_number;
-  const color = score >= 20 ? '#4ade80' : score >= 13 ? '#fbbf24' : '#f87171';
+  const total = data.total;
+  const tc = total >= 80 ? '#4ade80' : total >= 55 ? '#fbbf24' : '#f87171';
+  const tobaPct = Math.round((data.toba_score / 40) * 100);
+  const digPct = Math.round((data.dig_score / 30) * 100);
+  const relPct = Math.round((data.rel_score / 30) * 100);
 
   let html = `
-    <div class="score-header">
+    <div class="sc-top">
       <div>
-        <div class="score-title">商談採点レポート</div>
-        <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${data.overall_comment}</div>
+        <div class="sc-title">商談採点レポート v3</div>
+        <div class="sc-comment">${data.overall_comment}</div>
       </div>
-      <div class="total-score" style="color:${color}">${data.total}</div>
+      <div>
+        <div class="sc-total" style="color:${tc}">${total}</div>
+        <div class="sc-denom" style="text-align:right">/ 100点</div>
+      </div>
+    </div>
+    <div class="gauges">
+      <div class="gauge g-toba">
+        <div class="gauge-label">鳥羽哲学</div>
+        <div class="gauge-score">${data.toba_score}<span style="font-size:11px;color:var(--text-muted)">/40</span></div>
+        <div class="gauge-track"><div class="gauge-fill" style="width:${tobaPct}%"></div></div>
+      </div>
+      <div class="gauge g-dig">
+        <div class="gauge-label">深掘り力</div>
+        <div class="gauge-score">${data.dig_score}<span style="font-size:11px;color:var(--text-muted)">/30</span></div>
+        <div class="gauge-track"><div class="gauge-fill" style="width:${digPct}%"></div></div>
+      </div>
+      <div class="gauge g-rel">
+        <div class="gauge-label">関係構築力</div>
+        <div class="gauge-score">${data.rel_score}<span style="font-size:11px;color:var(--text-muted)">/30</span></div>
+        <div class="gauge-track"><div class="gauge-fill" style="width:${relPct}%"></div></div>
+      </div>
     </div>`;
 
-  data.phases.forEach(phase => {
-    html += `<div class="score-section"><div class="score-section-title">${phase.name}</div>`;
-    phase.items.forEach(item => {
-      const tagClass = item.result === 'ok' ? 'tag-ok' : item.result === 'warn' ? 'tag-warn' : 'tag-ng';
-      const tagLabel = item.result === 'ok' ? '◎' : item.result === 'warn' ? '△' : '✕';
-      html += `<div class="score-row">
-        <span class="score-tag ${tagClass}">${tagLabel}</span>
-        <div class="score-item">
-          <div>${item.item}</div>
-          ${item.comment ? `<div class="score-comment">${item.comment}</div>` : ''}
-        </div>
-      </div>`;
-    });
-    html += `</div>`;
+  // Block 1: Toba
+  html += `<div class="section">
+    <div class="sec-head">
+      <span class="sec-badge sb-toba">鳥羽哲学</span>
+      <span class="sec-name">提案・クロージングの型</span>
+      <span class="sec-pts">${data.toba_score}/40点</span>
+    </div>`;
+  data.toba.forEach(item => {
+    const pc = ptsClass(item.pts, item.max);
+    html += `<div class="row">
+      <div class="row-pts ${pc}">${item.pts}/${item.max}</div>
+      <div class="row-body">
+        <div class="row-name">${item.name}</div>
+        ${item.comment ? `<div class="row-comment">${item.comment}</div>` : ''}
+      </div>
+    </div>`;
   });
+  html += `</div>`;
+
+  // Block 2: Dig
+  html += `<div class="section">
+    <div class="sec-head">
+      <span class="sec-badge sb-dig">深掘り力</span>
+      <span class="sec-name">商談でしか聞けない情報</span>
+      <span class="sec-pts">${data.dig_score}/30点</span>
+    </div>`;
+  data.dig.forEach(item => {
+    const pc = ptsClass(item.pts, item.max);
+    html += `<div class="row">
+      <div class="row-pts ${pc}">${item.pts}/${item.max}</div>
+      <div class="row-body">
+        <div class="row-name">${item.name}</div>
+        ${item.found ? `<div class="row-found">${item.found}${item.comment === 'GOOD' ? '<span class="row-good">GOOD</span>' : ''}</div>` : `<div class="row-comment">${item.comment || '引き出せていません'}</div>`}
+      </div>
+    </div>`;
+  });
+  html += `</div>`;
+
+  // Block 3: Rel
+  const r = data.rel;
+  const empTotal = (r.empathy.count_pts || 0) + (r.empathy.quality_pts || 0);
+  const selfTotal = (r.self_disclosure.count_pts || 0) + (r.self_disclosure.quality_pts || 0);
+  const negTotal = r.negative.pts || 0;
+
+  html += `<div class="section">
+    <div class="sec-head">
+      <span class="sec-badge sb-rel">関係構築力</span>
+      <span class="sec-name">共感・自己開示・ネガティブ連成</span>
+      <span class="sec-pts">${data.rel_score}/30点</span>
+    </div>
+    <div class="sub-section">
+      <div class="sub-label">共感力 ${empTotal}/10点</div>
+      <div class="sub-detail">回数（${r.empathy.count_pts}/5）: ${r.empathy.count_detail}</div>
+      <div class="sub-detail">質（${r.empathy.quality_pts}/5）: ${r.empathy.quality_detail}</div>
+    </div>
+    <div class="sub-section">
+      <div class="sub-label">自己開示力 ${selfTotal}/10点</div>
+      <div class="sub-detail">回数（${r.self_disclosure.count_pts}/5）: ${r.self_disclosure.count_detail}</div>
+      <div class="sub-detail">質（${r.self_disclosure.quality_pts}/5）: ${r.self_disclosure.quality_detail}</div>
+    </div>
+    <div class="sub-section">
+      <div class="sub-label">ネガティブ連成 ${negTotal}/10点</div>
+      ${r.negative.found
+        ? `<div class="row-found">${r.negative.found}${r.negative.comment === 'GOOD' ? '<span class="row-good">GOOD</span>' : ''}</div>`
+        : `<div class="sub-detail">引き出せていません</div>`}
+    </div>
+  </div>`;
 
   if (data.improvements && data.improvements.length > 0) {
-    html += `<div class="improve-box"><div class="improve-title">▶ 次回への改善ポイント</div>`;
-    data.improvements.forEach(imp => {
-      html += `<div class="improve-item">${imp}</div>`;
-    });
+    html += `<div class="improve"><div class="improve-title">▶ 次回への改善ポイント</div>`;
+    data.improvements.forEach(i => { html += `<div class="improve-item">${i}</div>`; });
     html += `</div>`;
   }
 
   card.innerHTML = html;
-  div.appendChild(av); div.appendChild(card);
-  messagesEl.appendChild(div);
-  messagesEl.scrollTop = messagesEl.scrollHeight;
+  d.appendChild(a); d.appendChild(card);
+  m.appendChild(d); m.scrollTop = m.scrollHeight;
 }
 
 let isLoading = false;
 
 async function send() {
-  const inputEl = document.getElementById('input');
-  const sendBtn = document.getElementById('send');
-  const text = inputEl.value.trim();
+  const inp = document.getElementById('input');
+  const btn = document.getElementById('send');
+  const text = inp.value.trim();
   if (!text || isLoading) return;
-  inputEl.value = ''; inputEl.style.height = 'auto';
-  isLoading = true; sendBtn.disabled = true;
-
+  inp.value = ''; inp.style.height = 'auto';
+  isLoading = true; btn.disabled = true;
   addUserMsg(text);
   showTyping();
-
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -369,39 +446,40 @@ async function send() {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 2000,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: `以下の商談文字起こしを採点してください：\n\n${text}` }]
+        max_tokens: 3000,
+        system: SYSTEM,
+        messages: [{ role: 'user', content: `以下の商談内容を採点してください：\n\n${text}` }]
       })
     });
-
     const data = await res.json();
     removeTyping();
     const raw = data.content?.[0]?.text || '';
-
     try {
-      const clean = raw.replace(/```json|```/g, '').trim();
-      const parsed = JSON.parse(clean);
+      const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim());
       renderScore(parsed);
     } catch(e) {
-      addAiMsg(raw);
+      const d2 = document.createElement('div'); d2.className = 'msg ai';
+      const a2 = document.createElement('div'); a2.className = 'msg-av'; a2.textContent = '採';
+      const b2 = document.createElement('div'); b2.className = 'bubble'; b2.textContent = raw;
+      d2.appendChild(a2); d2.appendChild(b2);
+      document.getElementById('messages').appendChild(d2);
     }
   } catch(e) {
     removeTyping();
-    addAiMsg('通信エラーが発生しました。APIキーを確認してもう一度試してください。');
+    const d3 = document.createElement('div'); d3.className = 'msg ai';
+    const a3 = document.createElement('div'); a3.className = 'msg-av'; a3.textContent = '採';
+    const b3 = document.createElement('div'); b3.className = 'bubble'; b3.textContent = '通信エラーが発生しました。APIキーを確認してもう一度試してください。';
+    d3.appendChild(a3); d3.appendChild(b3);
+    document.getElementById('messages').appendChild(d3);
   }
-
-  isLoading = false; sendBtn.disabled = false; inputEl.focus();
+  isLoading = false; btn.disabled = false; inp.focus();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  const sendBtn = document.getElementById('send');
-  const inputEl = document.getElementById('input');
-  if (sendBtn) sendBtn.addEventListener('click', send);
-  if (inputEl) {
-    inputEl.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
-    inputEl.addEventListener('input', () => { inputEl.style.height = 'auto'; inputEl.style.height = Math.min(inputEl.scrollHeight, 200) + 'px'; });
-  }
+  document.getElementById('send').addEventListener('click', send);
+  const inp = document.getElementById('input');
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
+  inp.addEventListener('input', () => { inp.style.height = 'auto'; inp.style.height = Math.min(inp.scrollHeight, 200) + 'px'; });
 });
 </script>
 </body>
